@@ -271,6 +271,12 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 	fclose(flujo);
 	
 	if (tipo == 2054){
+		for (i=1; (i < header->caplen + 1 ) ; i++)
+	    {
+	        printf("%.2x ", pkt_data[i-1]);
+	        if ( (i % LINE_LEN) == 0) printf("\n");
+	    }
+	    printf("\n");
     	unsigned short h_t = (pkt_data[14]*256)+pkt_data[15];
     	unsigned short p_t = (pkt_data[16]*256)+pkt_data[17];
     	unsigned short o_c = (pkt_data[20]*256)+pkt_data[21];
