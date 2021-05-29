@@ -8,9 +8,19 @@
 #define 	PCAP_SRC_FILE   2
 #define 	PCAP_BUF_SIZE   1024
 
-void dispatcher_handler(u_char *, const struct pcap_pkthdr *, const u_char *); /* La funcion que hace posible el separar las tramas bit a bit */
 int trama_lcc();
 int capturar_tramas();
+void dispatcher_handler(u_char *, const struct pcap_pkthdr *, const u_char *); /* La funcion que hace posible el separar las tramas bit a bit */
+void packet_handler2(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
+void packet_handler3(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
+void packet_handler1(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data); //Se encarga de analizar un paquete de datos,
+//una vez es capturado por la tarjeta de red. Prototipo que hace el desmenuce de todos los protocolos. Contiene una cadena si se especifican
+//parametros para la captura de esos paquetes.
+//El apuntados tipo Struct un paquete puede ser que analice la trama en crudo o que se vaya directo por las estructuras de datos de los encabezados
+//de los protocolos que contiene ese paquete, en cada uno de los protocolos. para efeciencia
+//El tercer parametro es un apuntador a una cadena que contiene el packet data que es la trama en crudo, es practica mente lo escencial, los datos en 
+//crudo de la trama que se captura.
+
 /* Las variable que usaremos para poder almacenar algunos datos que mostraremos en pantalla */
 unsigned char tipo;
 unsigned char i_g;
@@ -47,9 +57,11 @@ int main(int argc, char **argv)
 {
 	int n=0;
 	
-	while(n != 5){
-		printf("1.- Capturar tramas. \n");
+	while(n != 4){
+		printf("1.- Capturar tramas(ip, arp). \n");
 		printf("2.- Capturar trama llc. \n");
+		printf("3.- Exportar trama a .pcap llc. \n");
+		printf("4.- Salir \n");
 		scanf("%i", &n);
 		system("cls");
 		switch(n){
@@ -59,7 +71,9 @@ int main(int argc, char **argv)
 			case 2:
 				trama_lcc();
 			break;
-			
+			case 3:
+				capturar_tramas();
+			break;
 		}
 	}
 
@@ -229,7 +243,7 @@ int trama_lcc(){
     return 0;
 }
 
-void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data){
+void packet_handler1(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data){
 	
 	struct tm *ltime;
 	char timestr[16]; //Arreglo de bytes que va contener los datos en crudo 
@@ -474,8 +488,273 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
     printf("\n\n"); 
 }
 
+void packet_handler2(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data){
+	struct tm *ltime;
+	char timestr[16]; //Arreglo de bytes que va contener los datos en crudo 
+	time_t local_tv_sec;
+	int j=0,k=0,l=0,m=0,n=0;
+	unsigned short tipo = (pkt_data[12]*256)+pkt_data[13]; //identificamos el campo tipo, creamos una variable que mida 2 bits, usamos unisigned porque
+	unsigned short h_t = (pkt_data[14]*256)+pkt_data[15];
+	unsigned short p_t = (pkt_data[16]*256)+pkt_data[17];
+	unsigned short o_c = (pkt_data[20]*256)+pkt_data[21];
+	/*
+	 * unused parameters
+	 */
+	(VOID)(param);
+	(VOID)(pkt_data);
+
+	/* convert the timestamp to readable format */
+	local_tv_sec = header->ts.tv_sec;
+	//ltime=localtime(&local_tv_sec);
+	//strftime( timestr, sizeof timestr, "%H:%M:%S", ltime);
+	
+	//printf("%s,%.6d len:%d\n", timestr, header->ts.tv_usec, header->len);
+	u_int i=0;
+
+    /*
+     * Unused variable
+     */
+
+		
+		/* print pkt timestamp and pkt len */
+	    printf("%ld:%ld (%ld)\n", header->ts.tv_sec, header->ts.tv_usec, header->len);          
+	    
+	    /* Print the packet */
+	    for (i=1; (i < header->caplen + 1 ) ; i++)
+	    {
+	        printf("%.2x ", pkt_data[i-1]);
+	        if ( (i % LINE_LEN) == 0) printf("\n");
+	    }
+	    printf("\n");
+		/**/
+	    //unsigned tiene un rango tanto de positivos como negativos, el campo tipo mide solo dos bits a este le cargamos de la trama en crudo el bit 12 y 
+		//se multiplica por 256 para que este se recorra 8 bits a la parte alta y no se ensime con el de parte baja que es el bit 13 de la trama en crudo.
+	    printf("Tipo: %d   %02X %02X \n",tipo,pkt_data[12],pkt_data[13]); //indicamos al arreglo que contiene a la trama en crudo que solo queremos el bit 12 y 13
+	    if (tipo == 2054){
+	    printf("MAC destino: ");
+		for(j=0;j<6;j++){ //establecemos que bits queremos mostrar
+		   printf("%02X:",pkt_data[j]);   //arreglo que contiene a la trama en crudo
+		}	//Se establece cuantos digitos queremos en este caso dos y con la X indicamos en hexadecimal
+		printf("\n");
+		printf("MAC origen: ");
+		for(k=6;k<12;k++){ //establecemos que bits queremos mostrar
+		   printf("%02X: ",pkt_data[k]);   //arreglo que contiene a la trama en crudo
+		}//Se establece cuantos digitos queremos en este caso dos y con la X indicamos en hexadecimal
+		printf("\n");
+
+    	printf("\n Hardware Type: %d   %02X %02X ",h_t,pkt_data[14],pkt_data[15]);
+    	switch(h_t){
+    		case 1 :
+    			printf("Ethernet \n");
+    		break;
+    		case 6 :
+    			printf("IEEE 802 Networks \n");
+    		break;
+    		case 7 :
+    			printf("ARCNET \n");
+    		break;
+    		case 15 :
+	    			printf("Frame Relay \n");
+    		break;
+    		case 16 :
+    			printf("Asynchronous Transfer Mode (ATM) \n");
+    		break;
+    		case 17 :
+    			printf("HDLC \n");
+    		break;
+	    		case 18 :
+    			printf("Fibre Channel \n");
+    		break;
+    		case 19 :
+    			printf("Asynchronous Transfer Mode (ATM) \n");
+    		break;
+   		case 20 :
+    			printf("Serial Line \n");
+    		break;
+			}
+    	printf("\n Protocol Type: %d   %02X %02X ",p_t,pkt_data[16],pkt_data[17]);
+    	printf("\n Hardware Address Length: %d",pkt_data[18]);
+    	printf("\n Protocol Address Length: %d",pkt_data[19]);
+    	printf("\n OpCode: %d   %02X %02X  ",o_c,pkt_data[20],pkt_data[21]);
+    	switch(o_c){
+    		case 1 :
+	    			printf("ARP Request \n");
+    		break;
+    		case 2 :
+    			printf("ARP Reply \n");
+    		break;
+    		case 3 :
+    			printf("RARP Request \n");
+    		break;
+    		case 4 :
+	    			printf("RARP Reply \n");
+    		break;
+    	}
+    	printf("\n Sender Hardware Address: ");
+		for(l=22;l<28;l++){ //establecemos que bits queremos mostrar
+	   		printf("%02X:",pkt_data[l]);   //arreglo que contiene a la trama en crudo
+			}
+		printf("\n Sender Protocol Address: ");
+		for(m=28;m<32;m++){ //establecemos que bits queremos mostrar
+	   		printf("%02X:",pkt_data[m]);   //arreglo que contiene a la trama en crudo
+		}
+		printf("\n Target Ip Address: ");
+		for(n=38;n<48;n++){ //establecemos que bits queremos mostrar
+	   		printf("%02X:",pkt_data[n]);   //arreglo que contiene a la trama en crudo
+			}
+		printf("\n");
+	}    
+    printf("\n\n"); 
+}	//Se establece cuantos digitos queremos en este caso dos y con la X indicamos en hexadecimal
+
+void packet_handler3(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data){
+	unsigned short tipo = (pkt_data[12]*256)+pkt_data[13];
+	unsigned short off;
+	printf("\n°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°\n");
+	int i=0;
+	/*IMPRIMIMOS LAS TRAMAS*/
+	printf("%ld:%ld (%ld)\n", header->ts.tv_sec, header->ts.tv_usec, header->len);          
+    
+    /* Print the packet */
+    for (i=1; (i < header->caplen + 1 ) ; i++){
+        printf("%.2x ", pkt_data[i-1]);
+        if ( (i % LINE_LEN) == 0) printf("\n");
+    }
+    printf("\n");
+	/*TERMINA LA IMPRESION*/
+	
+	FILE * flujo = fopen("datos.pcap","a");
+    if(flujo == NULL){
+    	perror("Error en la creacion del archivo \n");
+	} else{
+	    for (i=1; (i < header->caplen + 1 ) ; i++){
+	        fprintf(flujo, "%.2x ", pkt_data[i-1]);
+	        if ( (i % LINE_LEN) == 0) fprintf(flujo, "\n");
+	    }
+		fprintf(flujo, "\n");
+	}
+	fflush(flujo);
+	fclose(flujo);
+	
+	
+	printf("Paquete IP..\n");
+	
+	ip_header *ih, ip;
+	u_int ip_len;
+	ip.ver_ihl = pkt_data[0]>>4;
+	printf("Campo versión: %d, \n", ip.ver_ihl);
+	if(ip.ver_ihl == 4){
+		printf("IPv4\n");
+	}else if(ip.ver_ihl == 6){
+		printf("IPv6\n");
+	}
+	ip.ver_ihl = pkt_data[0]&0xf;
+	printf("Longitud de encabezado ip: %d\n", ip.ver_ihl);
+	ip.tos = (pkt_data[1]>>5)&0x07;
+	printf("Servicios Diferenciados: ");
+	switch(ip.tos){
+		case 0 :
+			printf("Routine, default, %03X\n",ip.tos);
+		break;
+		case 1 :
+			printf("Priority, %03X\n",ip.tos);
+		break;
+		case 2 :
+			printf("Inmmediate, %03X\n",ip.tos);
+		break;
+		case 3 :
+			printf("Flash, Call signaling, %03X\n",ip.tos);
+		break;
+		case 4 :
+			printf("Flash override, Vconfig, %03X\n",ip.tos);
+		break;
+		case 5 :
+			printf("CRITIC/ECP, Voz, %03X\n",ip.tos);
+		break;
+		case 6 :
+			printf("Internetwork Control, %03X\n",ip.tos);
+		break;
+		case 7 :
+			printf("Network control, %03X\n",ip.tos);
+		break;
+	}
+	ip.tos = (pkt_data[1])&0x03;
+	printf("Notificacion de de congestionamiento explicito: ");
+	switch(ip.tos){
+		case 0 :
+			printf("Sin Capacidad ECN (%02X)\n",ip.tos);
+		break;
+		case 1 :
+			printf("Capacidad de transporte ECN 0 (%02X)\n",ip.tos);
+		break;
+		case 2 :
+			printf("Capacidad de transporte ECN 1 (%02X)\n",ip.tos);
+		break;
+		case 3 :
+			printf("Congestion encontrada, (%02X)\n",ip.tos);
+		break;
+		}
+	ip.tlen=(pkt_data[2])+pkt_data[3];
+	printf("Longitud total: %d, %02x %02x\n",ip.tlen,pkt_data[2],pkt_data[3]);
+	ip.identification = (pkt_data[4]) + pkt_data[5];
+	printf("Campo de Identificacion: %d, %02x %02x\n",ip.identification,pkt_data[4],pkt_data[5]);
+	ip.flags_fo=(pkt_data[6]>>5)&0x07;
+	printf("flags: ");
+	switch(ip.flags_fo){
+	case 0:
+		break;
+		case 1:
+			printf("more (%03X)\n",ip.flags_fo);
+		break;
+		case 2:
+			printf("dont fragment (%03X)\n",ip.flags_fo);
+		break;
+		case 3:
+		break;
+		case 4:
+			printf("Unused (%03X)\n",ip.flags_fo);
+	}
+	off=(pkt_data[6]&0x1f)+pkt_data[7];
+	printf("fragment offset: %d, (%03x %X) \n",off,(pkt_data[6]&0x1f),pkt_data[7]);
+	ip.ttl=pkt_data[8];
+	printf("TTL: %d \n",ip.ttl);
+	ip.proto=pkt_data[9];
+	printf("Tipo de protocolo: ");
+	if(ip.proto == 1){
+		printf("ICMP \n");
+	}
+	else if(ip.proto == 2){
+		printf("IGMP \n");
+	}
+	else if(ip.proto == 6){
+		printf("TCP \n");
+	}
+	else if(ip.proto == 17){
+		printf("UDP \n");
+	}else{
+		printf("%d \n",ip.proto);
+	}
+	ip.crc=pkt_data[10]+pkt_data[11];
+	printf("Checksum %d (%02X)\n",ip.crc,ip.crc);
+	/* retireve the position of the ip header */
+	ih = (ip_header *) (pkt_data + 12); //length of ethernet header
+	/* print ip addresses and udp ports */
+	printf("(Source) %d.%d.%d.%d (destination)-> %d.%d.%d.%d \n",
+	ih->saddr.byte1,
+	ih->saddr.byte2,
+	ih->saddr.byte3,
+	ih->saddr.byte4,
+	ih->daddr.byte1,
+	ih->daddr.byte2,
+	ih->daddr.byte3,
+	ih->daddr.byte4);
+	printf("Option: [0]\n");
+	printf("\n");	
+
+}
+
 int capturar_tramas(){
-	int s=0;
+	int s=0,opcion=0;
 	pcap_if_t *alldevs;
 	pcap_if_t *d;
 	int inum;
@@ -537,8 +816,30 @@ int capturar_tramas(){
 	/* At this point, we don't need any more the device list. Free it */
 	pcap_freealldevs(alldevs);
 	/* start the capture */
-	pcap_loop(adhandle, 15, packet_handler, NULL);
-	pcap_close(adhandle);
-}
+	system("cls");
+	system("pause");
+	printf("1.- Sin filtro. \n");
+	printf("2.- filtro arp. \n");
+	printf("3.- filtro ip. \n");
+	scanf("%i",&opcion);
+	if(opcion == 1){
+		pcap_loop(adhandle, 15, packet_handler1, NULL);
+		pcap_close(adhandle);
+		system("pause");
+		system("cls");
+	}
+	if(opcion == 2){
+		pcap_loop(adhandle, 15, packet_handler2, NULL);
+		pcap_close(adhandle);
+		system("pause");
+		system("cls");
+	}
+	if(opcion == 3){
+		pcap_loop(adhandle, 15, packet_handler3, NULL);
+		pcap_close(adhandle);
+		system("pause");
+		system("cls");
+	}
 
+}
 
