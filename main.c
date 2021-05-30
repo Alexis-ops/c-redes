@@ -754,7 +754,7 @@ void packet_handler3(u_char *param, const struct pcap_pkthdr *header, const u_ch
 }
 
 int capturar_tramas(){
-	int s=0,opcion=0;
+	int s=0,opcion=0,cantidad=0;
 	pcap_if_t *alldevs;
 	pcap_if_t *d;
 	int inum;
@@ -817,25 +817,28 @@ int capturar_tramas(){
 	pcap_freealldevs(alldevs);
 	/* start the capture */
 	system("cls");
-	system("pause");
 	printf("1.- Sin filtro. \n");
 	printf("2.- filtro arp. \n");
 	printf("3.- filtro ip. \n");
 	scanf("%i",&opcion);
+	system("cls");
+	printf("Ingrese la cantidad de tramas a capturar \n");
+	scanf("%i",&cantidad);
+	system("cls");
 	if(opcion == 1){
-		pcap_loop(adhandle, 15, packet_handler1, NULL);
+		pcap_loop(adhandle, cantidad, packet_handler1, NULL);
 		pcap_close(adhandle);
 		system("pause");
 		system("cls");
 	}
 	if(opcion == 2){
-		pcap_loop(adhandle, 15, packet_handler2, NULL);
+		pcap_loop(adhandle, cantidad, packet_handler2, NULL);
 		pcap_close(adhandle);
 		system("pause");
 		system("cls");
 	}
 	if(opcion == 3){
-		pcap_loop(adhandle, 15, packet_handler3, NULL);
+		pcap_loop(adhandle, cantidad, packet_handler3, NULL);
 		pcap_close(adhandle);
 		system("pause");
 		system("cls");
