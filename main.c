@@ -374,14 +374,14 @@ void packet_handler1(u_char *param, const struct pcap_pkthdr *header, const u_ch
 		
 		ip_header *ih, ip;
 		u_int ip_len;
-		ip.ver_ihl = pkt_data[0]>>4;
+		ip.ver_ihl = (pkt_data[14]>>4)&0xf;
 		printf("Campo versión: %d, \n", ip.ver_ihl);
 		if(ip.ver_ihl == 4){
 			printf("IPv4\n");
 		}else if(ip.ver_ihl == 6){
 			printf("IPv6\n");
 		}
-		ip.ver_ihl = pkt_data[0]&0xf;
+		ip.ver_ihl = (pkt_data[14])&0xf;
 		printf("Longitud de encabezado ip: %d\n", ip.ver_ihl);
 		ip.tos = (pkt_data[1]>>5)&0x07;
 		printf("Servicios Diferenciados: ");
@@ -641,14 +641,14 @@ void packet_handler3(u_char *param, const struct pcap_pkthdr *header, const u_ch
 	
 	ip_header *ih, ip;
 	u_int ip_len;
-	ip.ver_ihl = pkt_data[0]>>4;
+	ip.ver_ihl = (pkt_data[14]>>4)&0xf;
 	printf("Campo versión: %d, \n", ip.ver_ihl);
 	if(ip.ver_ihl == 4){
 		printf("IPv4\n");
 	}else if(ip.ver_ihl == 6){
 		printf("IPv6\n");
 	}
-	ip.ver_ihl = pkt_data[0]&0xf;
+	ip.ver_ihl = (pkt_data[14])&0xf;
 	printf("Longitud de encabezado ip: %d\n", ip.ver_ihl);
 	ip.tos = (pkt_data[1]>>5)&0x07;
 	printf("Servicios Diferenciados: ");
