@@ -53,12 +53,19 @@ typedef struct ip_header{
 	
 }ip_header,variable;
 
+/* ICMP header*/
+typedef struct icmp_header{
+	u_char type; // ICMP type
+	u_char code; // ICMP code
+	u_short crc; // Checksum
+}icmp_header;
+
 int main(int argc, char **argv)
 {
 	int n=0;
 	
 	while(n != 4){
-		printf("1.- Capturar tramas(ip, arp). \n");
+		printf("1.- Capturar tramas(ip, arp, icmp). \n");
 		printf("2.- Capturar trama llc. \n");
 		printf("3.- Exportar trama a .pcap llc. \n");
 		printf("4.- Salir \n");
@@ -249,9 +256,12 @@ void packet_handler1(u_char *param, const struct pcap_pkthdr *header, const u_ch
 	char timestr[16]; //Arreglo de bytes que va contener los datos en crudo 
 	time_t local_tv_sec;
 	int inum; 
-	u_int j=0,k=0,l=0,m=0,n=0;
+	u_int j=0,k=0,l=0,m=0,n=0,i=0;
 	unsigned short tipo = (pkt_data[12]*256)+pkt_data[13];
 	unsigned short off;
+	ip_header *ih;
+	ih = (ip_header *) (pkt_data + 14); //length of ethernet header
+	u_int ip_len;
 	/*
 	 * unused parameters
 	 */
@@ -259,17 +269,7 @@ void packet_handler1(u_char *param, const struct pcap_pkthdr *header, const u_ch
 	(VOID)(pkt_data);
 	/* convert the timestamp to readable format */
 	local_tv_sec = header->ts.tv_sec;
-	//ltime=localtime(&local_tv_sec);
-	//strftime( timestr, sizeof timestr, "%H:%M:%S", ltime);
-	//printf("%s,%.6d len:%d\n", timestr, header->ts.tv_usec, header->len);
-	u_int i=0;
-    /*
-     * Unused variable
-     */
-    /* print pkt timestamp and pkt len */
-    /*printf("%ld:%ld (%ld)\n", header->ts.tv_sec, header->ts.tv_usec, header->len);  */        
-    
-    /* Print the packet */
+	
     
 	FILE * flujo = fopen("datos.pcap","a");
     if(flujo == NULL){
@@ -284,7 +284,7 @@ void packet_handler1(u_char *param, const struct pcap_pkthdr *header, const u_ch
 	fflush(flujo);
 	fclose(flujo);
 	
-	if (tipo == 2054){
+	if (tipo == 2054){		
 		for (i=1; (i < header->caplen + 1 ) ; i++)
 	    {
 	        printf("%.2x ", pkt_data[i-1]);
@@ -369,6 +369,15 @@ void packet_handler1(u_char *param, const struct pcap_pkthdr *header, const u_ch
 	    }
 	    printf("\n");
 		/*TERMINA LA IMPRESION*/
+		
+		if(ih->proto==1){
+			icmp_header *icmp;
+			u_char ihl = ((ih->ver_ihl)&0x0f)*4;
+			icmp = (icmp_header *) (pkt_data + 14+(ihl));
+			printf("----|                  *ICMP*                  |----\n");
+			printf("Tipo: %d Codigo:%d\n",icmp->type, icmp->code);
+			printf("Checksum: %d\n",icmp->crc);
+		}
 		
 		printf("Paquete IP..\n");
 		
@@ -610,18 +619,10 @@ void packet_handler2(u_char *param, const struct pcap_pkthdr *header, const u_ch
 void packet_handler3(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data){
 	unsigned short tipo = (pkt_data[12]*256)+pkt_data[13];
 	unsigned short off;
-	printf("\n°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°\n");
 	int i=0;
-	/*IMPRIMIMOS LAS TRAMAS*/
-	printf("%ld:%ld (%ld)\n", header->ts.tv_sec, header->ts.tv_usec, header->len);          
-    
-    /* Print the packet */
-    for (i=1; (i < header->caplen + 1 ) ; i++){
-        printf("%.2x ", pkt_data[i-1]);
-        if ( (i % LINE_LEN) == 0) printf("\n");
-    }
-    printf("\n");
-	/*TERMINA LA IMPRESION*/
+	ip_header *ih;
+	ih = (ip_header *) (pkt_data + 14); //length of ethernet header
+	u_int ip_len;
 	
 	FILE * flujo = fopen("datos.pcap","a");
     if(flujo == NULL){
@@ -635,121 +636,141 @@ void packet_handler3(u_char *param, const struct pcap_pkthdr *header, const u_ch
 	}
 	fflush(flujo);
 	fclose(flujo);
-	
-	
-	printf("Paquete IP..\n");
-	
-	ip_header *ih, ip;
-	u_int ip_len;
-	ip.ver_ihl = (pkt_data[14]>>4)&0xf;
-	printf("Campo versión: %d, \n", ip.ver_ihl);
-	if(ip.ver_ihl == 4){
-		printf("IPv4\n");
-	}else if(ip.ver_ihl == 6){
-		printf("IPv6\n");
-	}
-	ip.ver_ihl = (pkt_data[14])&0xf;
-	printf("Longitud de encabezado ip: %d\n", ip.ver_ihl);
-	ip.tos = (pkt_data[1]>>5)&0x07;
-	printf("Servicios Diferenciados: ");
-	switch(ip.tos){
-		case 0 :
-			printf("Routine, default, %03X\n",ip.tos);
-		break;
-		case 1 :
-			printf("Priority, %03X\n",ip.tos);
-		break;
-		case 2 :
-			printf("Inmmediate, %03X\n",ip.tos);
-		break;
-		case 3 :
-			printf("Flash, Call signaling, %03X\n",ip.tos);
-		break;
-		case 4 :
-			printf("Flash override, Vconfig, %03X\n",ip.tos);
-		break;
-		case 5 :
-			printf("CRITIC/ECP, Voz, %03X\n",ip.tos);
-		break;
-		case 6 :
-			printf("Internetwork Control, %03X\n",ip.tos);
-		break;
-		case 7 :
-			printf("Network control, %03X\n",ip.tos);
-		break;
-	}
-	ip.tos = (pkt_data[1])&0x03;
-	printf("Notificacion de de congestionamiento explicito: ");
-	switch(ip.tos){
-		case 0 :
-			printf("Sin Capacidad ECN (%02X)\n",ip.tos);
-		break;
-		case 1 :
-			printf("Capacidad de transporte ECN 0 (%02X)\n",ip.tos);
-		break;
-		case 2 :
-			printf("Capacidad de transporte ECN 1 (%02X)\n",ip.tos);
-		break;
-		case 3 :
-			printf("Congestion encontrada, (%02X)\n",ip.tos);
-		break;
+			
+	if (tipo==2048){
+		/*---------IMPRIMIMOS LAS TRAMAS---------*/
+		printf("%ld:%ld (%ld)\n", header->ts.tv_sec, header->ts.tv_usec, header->len);          
+		   
+		/* Print the packet */
+		for(i=1; (i < header->caplen + 1 ) ; i++){
+		    printf("%.2x ", pkt_data[i-1]);
+		    if ( (i % LINE_LEN) == 0) printf("\n");
 		}
-	ip.tlen=(pkt_data[2])+pkt_data[3];
-	printf("Longitud total: %d, %02x %02x\n",ip.tlen,pkt_data[2],pkt_data[3]);
-	ip.identification = (pkt_data[4]) + pkt_data[5];
-	printf("Campo de Identificacion: %d, %02x %02x\n",ip.identification,pkt_data[4],pkt_data[5]);
-	ip.flags_fo=(pkt_data[6]>>5)&0x07;
-	printf("flags: ");
-	switch(ip.flags_fo){
-	case 0:
-		break;
-		case 1:
-			printf("more (%03X)\n",ip.flags_fo);
-		break;
-		case 2:
-			printf("dont fragment (%03X)\n",ip.flags_fo);
-		break;
-		case 3:
-		break;
-		case 4:
-			printf("Unused (%03X)\n",ip.flags_fo);
-	}
-	off=(pkt_data[6]&0x1f)+pkt_data[7];
-	printf("fragment offset: %d, (%03x %X) \n",off,(pkt_data[6]&0x1f),pkt_data[7]);
-	ip.ttl=pkt_data[8];
-	printf("TTL: %d \n",ip.ttl);
-	ip.proto=pkt_data[9];
-	printf("Tipo de protocolo: ");
-	if(ip.proto == 1){
-		printf("ICMP \n");
-	}
-	else if(ip.proto == 2){
-		printf("IGMP \n");
-	}
-	else if(ip.proto == 6){
-		printf("TCP \n");
-	}
-	else if(ip.proto == 17){
-		printf("UDP \n");
-	}else{
-		printf("%d \n",ip.proto);
-	}
-	ip.crc=pkt_data[10]+pkt_data[11];
-	printf("Checksum %d (%02X)\n",ip.crc,ip.crc);
-	/* retireve the position of the ip header */
-	ih = (ip_header *) (pkt_data + 12); //length of ethernet header
-	/* print ip addresses and udp ports */
-	printf("(Source) %d.%d.%d.%d (destination)-> %d.%d.%d.%d \n",
-	ih->saddr.byte1,
-	ih->saddr.byte2,
-	ih->saddr.byte3,
-	ih->saddr.byte4,
-	ih->daddr.byte1,
-	ih->daddr.byte2,
-	ih->daddr.byte3,
-	ih->daddr.byte4);
-	printf("Option: [0]\n");
-	printf("\n");	
+		printf("\n");
+		/*TERMINA LA IMPRESION*/
+		
+		if(ih->proto==1){
+			icmp_header *icmp;
+			u_char ihl = ((ih->ver_ihl)&0x0f)*4;
+			icmp = (icmp_header *) (pkt_data + 14+(ihl));
+			printf("+|                  *ICMP*                  |+\n");
+			printf("Tipo: %d Codigo:%d\n",icmp->type, icmp->code);
+			printf("Checksum: %d\n",icmp->crc);
+		}
+		
+		printf("Paquete IP..\n");
+		ip_header *ih, ip;
+		ip.ver_ihl = pkt_data[0]>>4;
+		printf("Campo versión: %d, \n", ip.ver_ihl);
+		if(ip.ver_ihl == 4){
+			printf("IPv4\n");
+		}else if(ip.ver_ihl == 6){
+			printf("IPv6\n");
+		}
+		ip.ver_ihl = pkt_data[0]&0xf;
+		printf("Longitud de encabezado ip: %d\n", ip.ver_ihl);
+		ip.tos = (pkt_data[1]>>5)&0x07;
+		printf("Servicios Diferenciados: ");
+		switch(ip.tos){
+			case 0 :
+				printf("Routine, default, %03X\n",ip.tos);
+			break;
+			case 1 :
+				printf("Priority, %03X\n",ip.tos);
+			break;
+			case 2 :
+				printf("Inmmediate, %03X\n",ip.tos);
+			break;
+			case 3 :
+				printf("Flash, Call signaling, %03X\n",ip.tos);
+			break;
+			case 4 :
+				printf("Flash override, Vconfig, %03X\n",ip.tos);
+			break;
+			case 5 :
+				printf("CRITIC/ECP, Voz, %03X\n",ip.tos);
+			break;
+			case 6 :
+				printf("Internetwork Control, %03X\n",ip.tos);
+			break;
+			case 7 :
+				printf("Network control, %03X\n",ip.tos);
+			break;
+		}
+		ip.tos = (pkt_data[1])&0x03;
+		printf("Notificacion de de congestionamiento explicito: ");
+		switch(ip.tos){
+			case 0 :
+				printf("Sin Capacidad ECN (%02X)\n",ip.tos);
+			break;
+			case 1 :
+				printf("Capacidad de transporte ECN 0 (%02X)\n",ip.tos);
+			break;
+			case 2 :
+				printf("Capacidad de transporte ECN 1 (%02X)\n",ip.tos);
+			break;
+			case 3 :
+				printf("Congestion encontrada, (%02X)\n",ip.tos);
+			break;
+			}
+		ip.tlen=(pkt_data[2])+pkt_data[3];
+		printf("Longitud total: %d, %02x %02x\n",ip.tlen,pkt_data[2],pkt_data[3]);
+		ip.identification = (pkt_data[4]) + pkt_data[5];
+		printf("Campo de Identificacion: %d, %02x %02x\n",ip.identification,pkt_data[4],pkt_data[5]);
+		ip.flags_fo=(pkt_data[6]>>5)&0x07;
+		printf("flags: ");
+		switch(ip.flags_fo){
+			case 0:
+			break;
+			case 1:
+				printf("more (%03X)\n",ip.flags_fo);
+			break;
+			case 2:
+				printf("dont fragment (%03X)\n",ip.flags_fo);
+			break;
+			case 3:
+			break;
+			case 4:
+				printf("Unused (%03X)\n",ip.flags_fo);
+		}
+		off=(pkt_data[6]&0x1f)+pkt_data[7];
+		printf("fragment offset: %d, (%03x %X) \n",off,(pkt_data[6]&0x1f),pkt_data[7]);
+		ip.ttl=pkt_data[8];
+		printf("TTL: %d \n",ip.ttl);
+		ip.proto=pkt_data[9];
+		printf("Tipo de protocolo: ");
+		if(ip.proto == 1){
+			printf("ICMP \n");
+		}
+		else if(ip.proto == 2){
+			printf("IGMP \n");
+		}
+		else if(ip.proto == 6){
+			printf("TCP \n");
+		}
+		else if(ip.proto == 17){
+			printf("UDP \n");
+		}else{
+			printf("%d \n",ip.proto);
+		}
+		ip.crc=pkt_data[10]+pkt_data[11];
+		printf("Checksum %d (%02X)\n",ip.crc,ip.crc);
+		/* retireve the position of the ip header */
+		ih = (ip_header *) (pkt_data + 12); //length of ethernet header
+		/* print ip addresses and udp ports */
+		printf("(Source) %d.%d.%d.%d (destination)-> %d.%d.%d.%d \n",
+		ih->saddr.byte1,
+		ih->saddr.byte2,
+		ih->saddr.byte3,
+		ih->saddr.byte4,
+		ih->daddr.byte1,
+		ih->daddr.byte2,
+		ih->daddr.byte3,
+		ih->daddr.byte4);
+		printf("Option: [0]\n");
+		printf("\n");
+		printf("-------------------------------\n");
+	}	
 
 }
 
