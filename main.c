@@ -10,6 +10,10 @@
 
 int trama_lcc();
 int capturar_tramas();
+// Prototipo de función para análisis de paquetes IP.
+void ip_packet_handler(unsigned char *, const struct pcap_pkthdr *, const unsigned char *);
+// Prototipo de función para imprimir una dirección IP.
+void print_ip_addr(ip_addr);
 void dispatcher_handler(u_char *, const struct pcap_pkthdr *, const u_char *); /* La funcion que hace posible el separar las tramas bit a bit */
 void packet_handler2(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
 void packet_handler3(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
@@ -59,6 +63,14 @@ typedef struct icmp_header{
 	u_char code; // ICMP code
 	u_short crc; // Checksum
 }icmp_header;
+
+typedef struct igmph
+{
+  unsigned char type;
+  unsigned char time;
+  unsigned short checksum;
+  ip_address grupo;
+} igmph;
 
 int main(int argc, char **argv)
 {
@@ -841,6 +853,7 @@ int capturar_tramas(){
 	printf("1.- Sin filtro. \n");
 	printf("2.- filtro arp. \n");
 	printf("3.- filtro ip. \n");
+	printf("4.- IGMP. \n");
 	scanf("%i",&opcion);
 	system("cls");
 	printf("Ingrese la cantidad de tramas a capturar \n");
@@ -864,6 +877,128 @@ int capturar_tramas(){
 		system("pause");
 		system("cls");
 	}
-
+	if(opcion == 4){
+		pcap_loop(adhandle, cantidad, &ip_packet_handler, NULL);
+		pcap_close(adhandle);
+		system("pause");
+		system("cls");
+	}
 }
 
+// Implementación de función para imprimir un ip_addr.
+void print_ip_addr(ip_address ip)
+{
+  printf("%i.",ip.byte1);
+     printf("%i.",ip.byte2);
+     printf("%i.",ip.byte3);
+     printf("%i.",ip.byte4);
+}
+
+void ip_packet_handler(unsigned char *param, const struct pcap_pkthdr *header, const unsigned char *pkt_data)
+{
+  printf("------- Paquete Capturado --------");
+printf("\n");
+  // MAC origen en capa de red.
+  printf(" MAC Origen: ");
+  int k=6;
+  for ( k ; k < 12; k++)
+  {
+    printf("%02X: ",pkt_data[k]);
+    
+  }
+  printf("\n");
+
+  // MAC destino en capa de red.
+  printf(" MAC Destino: ");
+  int j=0;
+  for (j = 0; j < 6; j++)
+  {
+    printf("%02X:",pkt_data[j]);
+  }
+  printf("\n");
+
+  // Campo tipo.
+  unsigned int type = (pkt_data[12] * 256) + pkt_data[13];
+
+  printf(" Ether Type: %d ",type);
+  printf("\n");
+
+  // Validar que sea paquete IP:
+  if (type == 2048)
+  {
+    // Imprimir información.
+    printf("El paquete es IP");
+    printf("\n");
+
+    // Castear a la estructura.
+    ip_header *ip = (ip_header *)(pkt_data + 14);
+
+   printf("Protocolo: %i",(ip->proto));
+   printf("\n");
+
+    if (ip->proto == 2)
+    {
+      // Extraer longitud de hlen.
+      unsigned char hlen = ((ip->ver_ihl) & 0x0f) * 4;
+
+      printf("· Longitud de paquete IP (hlen): %i ",(hlen));
+      printf("\n");
+
+      // Informar de análisis.
+      printf(" Análisis de IGMP:");
+      printf("\n");
+
+      // Analizar IGMP.
+      igmph *igmp = (igmph *)(pkt_data + 14 + hlen);
+
+      // Tipo.
+      printf( "  ~ Tipo: ");
+
+      switch (igmp->type)
+      {
+      case 0x11:
+        printf( "solicitud.");
+        printf("\n");
+        break;
+      case 0x12:
+        printf("reporte (IGMPv1)." );
+        printf("\n");
+        break;
+      case 0x16:
+        printf("reporte (IGMPv2).");
+        printf("\n");
+        break;
+      case 0x22:
+        printf("reporte (IGMPv3).");
+        printf("\n");
+        break;
+      default:
+        printf( "desconocido");
+        printf("\n");
+      }
+
+      // Tiempo.
+      printf("  ~ Tiempo: %i ms ",(igmp->time)  );
+      printf("\n");
+
+      // Grupo.
+      printf("  ~ Grupo: ");
+     
+      print_ip_addr(igmp->grupo);
+     printf("\n");
+    }
+    else
+    {
+     printf( "· El paquete IP no contiene un paquete IGMP." );
+     printf("\n");
+    }
+  }
+  else
+  {
+    printf("· El paquete NO es IP.");
+    printf("\n");
+  }
+
+  printf( "-------  Fin de Análisis  --------" );
+  printf("\n");
+}
