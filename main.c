@@ -7,24 +7,6 @@
 #define 	PCAP_OPENFLAG_PROMISCUOUS   1
 #define 	PCAP_SRC_FILE   2
 #define 	PCAP_BUF_SIZE   1024
-
-int trama_lcc();
-int capturar_tramas();
-// Prototipo de función para análisis de paquetes IP.
-void ip_packet_handler(unsigned char *, const struct pcap_pkthdr *, const unsigned char *);
-// Prototipo de función para imprimir una dirección IP.
-void print_ip_addr(ip_addr);
-void dispatcher_handler(u_char *, const struct pcap_pkthdr *, const u_char *); /* La funcion que hace posible el separar las tramas bit a bit */
-void packet_handler2(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
-void packet_handler3(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
-void packet_handler1(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data); //Se encarga de analizar un paquete de datos,
-//una vez es capturado por la tarjeta de red. Prototipo que hace el desmenuce de todos los protocolos. Contiene una cadena si se especifican
-//parametros para la captura de esos paquetes.
-//El apuntados tipo Struct un paquete puede ser que analice la trama en crudo o que se vaya directo por las estructuras de datos de los encabezados
-//de los protocolos que contiene ese paquete, en cada uno de los protocolos. para efeciencia
-//El tercer parametro es un apuntador a una cadena que contiene el packet data que es la trama en crudo, es practica mente lo escencial, los datos en 
-//crudo de la trama que se captura.
-
 /* Las variable que usaremos para poder almacenar algunos datos que mostraremos en pantalla */
 unsigned char tipo;
 unsigned char i_g;
@@ -91,6 +73,25 @@ typedef struct tcp_header{
 	u_short crc; // Checksum
 	u_short upointer; // urgent pointer
 }tcp_header;
+
+void packet_handler_icmp(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
+void packet_handler_igmp(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
+void packet_handler_udp(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
+void packet_handler_tcp(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
+int trama_lcc();
+int capturar_tramas(); // Prototipo de función para análisis de paquetes IP.
+void ip_packet_handler(unsigned char *, const struct pcap_pkthdr *, const unsigned char *); // Prototipo de función para imprimir una dirección IP.
+void print_ip_addr(ip_addr);
+void dispatcher_handler(u_char *, const struct pcap_pkthdr *, const u_char *); /* La funcion que hace posible el separar las tramas bit a bit */
+void packet_handler2(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
+void packet_handler3(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
+void packet_handler1(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data); //Se encarga de analizar un paquete de datos,
+//una vez es capturado por la tarjeta de red. Prototipo que hace el desmenuce de todos los protocolos. Contiene una cadena si se especifican
+//parametros para la captura de esos paquetes.
+//El apuntados tipo Struct un paquete puede ser que analice la trama en crudo o que se vaya directo por las estructuras de datos de los encabezados
+//de los protocolos que contiene ese paquete, en cada uno de los protocolos. para efeciencia
+//El tercer parametro es un apuntador a una cadena que contiene el packet data que es la trama en crudo, es practica mente lo escencial, los datos en 
+//crudo de la trama que se captura.
 
 int main(int argc, char **argv)
 {
@@ -450,6 +451,8 @@ void packet_handler3(u_char *param, const struct pcap_pkthdr *header, const u_ch
 /**/
 	unsigned short tipo = (pkt_data[12]*256)+pkt_data[13];
 	unsigned short off;
+	ip_header *ih;
+	u_int ip_len;
 		
 	if (tipo==2048){
 		printf("\n°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°\n");
@@ -468,8 +471,7 @@ void packet_handler3(u_char *param, const struct pcap_pkthdr *header, const u_ch
 		
 		printf("Paquete IP..\n");
 		
-		ip_header *ih;
-		u_int ip_len;
+		
 		/* retireve the position of the ip header */
 		ih = (ip_header *) (pkt_data + 12); //length of ethernet header
 		
@@ -555,84 +557,16 @@ void packet_handler3(u_char *param, const struct pcap_pkthdr *header, const u_ch
 		
 		printf("Tipo de protocolo: ");
 		if(ih->proto==1){
-			icmp_header *icmp;
-			u_char ihl = ((ih->ver_ihl)&0x0f)*4;
-			icmp = (icmp_header *) (pkt_data + 14+(ihl));
-			printf("+|                  *ICMP*                  |+\n");
-			printf("Tipo: %d Codigo:%d\n",icmp->type, icmp->code);
-			printf("Checksum: %d\n",icmp->crc);
+			packet_handler_icmp(& *param, & *header, & *pkt_data);
 		}
 		if (ih->proto == 2){
-	    // Extraer longitud de hlen.
-	    unsigned char hlen = ((ih->ver_ihl) & 0x0f) * 4;
-		printf("+|                  *IGMP*                  |+\n");
-	    printf("· Longitud de paquete IP (hlen): %i ",(hlen));
-	    printf("\n");
-	      // Informar de análisis.
-	    printf(" Análisis de IGMP:");
-		printf("\n");
-	
-	      // Analizar IGMP.
-	    igmph *igmp = (igmph *)(pkt_data + 14 + hlen);
-	     // Tipo.
-	    printf( "  ~ Tipo: ");
-	    switch (igmp->type)
-	     {
-	    case 0x11:
-	      printf( "solicitud.");
-	      printf("\n");
-	    break;
-	    case 0x12:
-	       printf("reporte (IGMPv1)." );
-	       printf("\n");
-	    break;
-	    case 0x16:
-	    	printf("reporte (IGMPv2).");
-	    	printf("\n");
-		break;
-	    case 0x22:
-	       printf("reporte (IGMPv3).");
-	       printf("\n");
-	       break;
-	     default:
-	       printf( "desconocido");
-	       printf("\n");
-	     }
-	     // Tiempo.
-	    printf("  ~ Tiempo: %i ms ",(igmp->time)  );
-	    printf("\n");
-	     // Grupo.
-	    printf("  ~ Grupo: ");
-	    
-	    print_ip_addr(igmp->grupo);
-	    printf("\n");
+	    	packet_handler_igmp(& *param, & *header, & *pkt_data);
 	    }
 		if(ih->proto == 6){
-			printf("+|                  *UDP*                  |+\n");
-			tcp_header *tcp;
-			u_char ihl = ((ih->ver_ihl)&0x0f)*4;
-			tcp = (tcp_header *) (pkt_data + 14+(ihl));
-			printf("Source port: %X \n",tcp->sport);
-			printf("Destination port: %X \n",tcp->dport);
-			printf("Numero de secuencia: %X\n",tcp->sec_num);
-			printf("Numero de acuse: %X\n",tcp->ack_num);
-			printf("Data offset: %X\n",tcp->d_offset_rsv);
-			printf("Flags: %X\n",tcp->flags);
-			printf("Tamaño de ventana: %X\n",tcp->window);
-			printf("Checksum de TCP: %X\n",tcp->crc);
-			printf("Urgent point: %X\n",tcp->upointer);
-			
-			
+			packet_handler_udp(& *param, & *header, & *pkt_data);
 		}
 		if(ih->proto==17){
-		udp_header *udp;
-		u_char ihl = ((ih->ver_ihl)&0x0f)*4;
-		udp = (udp_header *) (pkt_data + 14+(ihl));
-		printf("+|                  *UDP*                  |+\n");
-		printf("Source port: %X \n",udp->sport);
-		printf("Destination port: %X \n",udp->dport);
-		printf("Tamaño de UDP: %X \n",udp->len);
-		printf("Checksum de UDP: %X \n",udp->crc);
+			packet_handler_tcp(& *param, & *header, & *pkt_data);
 		}
 		else{
 			printf("%d \n",ih->proto);
@@ -658,13 +592,15 @@ void packet_handler3(u_char *param, const struct pcap_pkthdr *header, const u_ch
 }
 
 int capturar_tramas(){
-	int s=0,opcion=0,cantidad=0;
+	int s=0,opcion=0,cantidad=0,opcion1=0;
 	pcap_if_t *alldevs;
 	pcap_if_t *d;
+	ip_header *ih;
 	int inum;
 	int i=0;
 	pcap_t *adhandle;
 	char errbuf[PCAP_ERRBUF_SIZE];
+	
 
 	
 	/* Retrieve the device list */
@@ -725,7 +661,7 @@ int capturar_tramas(){
 	printf("°--------------------------------------°\n");
 	printf("| 1.- Sin filtro.                      |\n");
 	printf("| 2.- filtro arp.                      |\n");
-	printf("| 3.- filtro ip. (igmp, icmp)          |\n");
+	printf("| 3.- filtro ip.                       |\n");
 	printf("°--------------------------------------°\n");
 	scanf("%i",&opcion);
 	system("cls");
@@ -745,11 +681,48 @@ int capturar_tramas(){
 		system("cls");
 	}
 	if(opcion == 3){
-		pcap_loop(adhandle, cantidad, packet_handler3, NULL);
-		pcap_close(adhandle);
-		system("pause");
 		system("cls");
+		printf("°--------------------------------------°\n");
+		printf("| 1.- IP.  		                       |\n");
+		printf("| 2.- IP icmp.                         |\n");
+		printf("| 3.- IP igmp.                         |\n");
+		printf("| 4.- IP udp.                         |\n");
+		printf("| 5.- IP tcp.                         |\n");
+		printf("°--------------------------------------°\n");
+		scanf("%i",&opcion1);
+		if(opcion1 == 1){
+			pcap_loop(adhandle, cantidad, packet_handler3, NULL);
+			pcap_close(adhandle);
+			system("pause");
+			system("cls");
+		}
+		if(opcion1 == 2){
+			pcap_loop(adhandle, cantidad, packet_handler_icmp, NULL);
+			pcap_close(adhandle);
+			system("pause");
+			system("cls");
+		}
+		if(opcion1 == 3){
+			pcap_loop(adhandle, cantidad, packet_handler_igmp, NULL);
+			pcap_close(adhandle);
+			system("pause");
+			system("cls");
+		}
+		if(opcion1 == 4){
+			pcap_loop(adhandle, cantidad, packet_handler_udp, NULL);
+			pcap_close(adhandle);
+			system("pause");
+			system("cls");
+		}
+		if(opcion1 == 5){
+			pcap_loop(adhandle, cantidad, packet_handler_tcp, NULL);
+			pcap_close(adhandle);
+			system("pause");
+			system("cls");
+		}
+		
 	}
+	
 
 }
 void print_ip_addr(ip_address ip){
@@ -759,4 +732,95 @@ void print_ip_addr(ip_address ip){
     printf("%i.",ip.byte4);
     
 }
-
+void packet_handler_icmp(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data){
+	unsigned short tipo = (pkt_data[12]*256)+pkt_data[13];
+	ip_header *ih;
+	ih = (ip_header *) (pkt_data + 14); //length of ethernet header
+			
+	if (tipo==2048){
+		
+		if(ih->proto==1){
+			icmp_header *icmp;
+			u_char ihl = ((ih->ver_ihl)&0x0f)*4;
+			icmp = (icmp_header *) (pkt_data + 14+(ihl));
+			printf("+|                  *ICMP*                  |+\n");
+			printf("Tipo: %d \nCodigo: %d\n",icmp->type, icmp->code);
+			printf("Checksum: %d\n",icmp->crc);
+		}
+	}
+}
+void packet_handler_igmp(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data){
+	
+	int i=0;
+	ip_header *ih;
+	ih = (ip_header *) (pkt_data + 14); //length of ethernet header
+	unsigned char hlen = ((ih->ver_ihl) & 0x0f) * 4;
+	
+	printf("+|                  *IGMP*                  |+\n");
+	printf("· Longitud de paquete IP (hlen): %i ",(hlen));
+	printf("\n");
+	// Informar de análisis.
+	printf(" Análisis de IGMP:");
+	printf("\n");
+		      // Analizar IGMP.
+	igmph *igmp = (igmph *)(pkt_data + 14 + hlen);
+	    // Tipo.
+	printf( "  ~ Tipo: ");
+	switch (igmp->type)
+	{
+	case 0x11:
+		printf( "solicitud.");
+		printf("\n");
+	break;
+	case 0x12:
+	    printf("reporte (IGMPv1)." );
+	    printf("\n");
+	break;
+	case 0x16:
+	  	printf("reporte (IGMPv2).");
+	  	printf("\n");
+	break;
+	case 0x22:
+	    printf("reporte (IGMPv3).");
+	    printf("\n");
+	break;
+	default:
+	    printf( "desconocido");
+	    printf("\n");
+	}
+	   // Tiempo.
+	printf("  ~ Tiempo: %i ms ",(igmp->time)  );
+	printf("\n");
+	     // Grupo.
+	printf("  ~ Grupo: ");
+	    
+	print_ip_addr(igmp->grupo);
+	printf("\n");
+}
+void packet_handler_udp(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data){
+	ip_header *ih;
+	printf("+|                  *UDP*                  |+\n");
+	tcp_header *tcp;
+	u_char ihl = ((ih->ver_ihl)&0x0f)*4;
+	tcp = (tcp_header *) (pkt_data + 14+(ihl));
+	printf("Source port: %X \n",tcp->sport);
+	printf("Destination port: %X \n",tcp->dport);
+	printf("Numero de secuencia: %X\n",tcp->sec_num);
+	printf("Numero de acuse: %X\n",tcp->ack_num);
+	printf("Data offset: %X\n",tcp->d_offset_rsv);
+	printf("Flags: %X\n",tcp->flags);
+	printf("Tamaño de ventana: %X\n",tcp->window);
+	printf("Checksum de TCP: %X\n",tcp->crc);
+	printf("Urgent point: %X\n",tcp->upointer);
+}
+void packet_handler_tcp(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data){
+	ip_header *ih;
+	udp_header *udp;
+	u_char ihl = ((ih->ver_ihl)&0x0f)*4;
+	udp = (udp_header *) (pkt_data + 14+(ihl));
+	printf("+|                  *UDP*                  |+\n");
+	printf("Source port: %X \n",udp->sport);
+	printf("Destination port: %X \n",udp->dport);
+	printf("Tamaño de UDP: %X \n",udp->len);
+	printf("Checksum de UDP: %X \n",udp->crc);
+}
