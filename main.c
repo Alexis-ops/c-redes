@@ -101,8 +101,8 @@ int main(int argc, char **argv)
 		printf("°--------------------------------------------------------------------°\n");
 		printf("|  1.- Capturar tramas(ip, arp, icmp, igmp).                         |\n");
 		printf("|  2.- Capturar trama llc.                                           |\n");
-		printf("|  3.- Exportar trama a .pcap llc.                                   |\n");
-		printf("|  4.- Salir                                                         |\n");
+		printf("|  3.- Exportar trama a .pcap                                        |\n");
+		printf("|  4.- Salir.                                                        |\n");
 		printf("°--------------------------------------------------------------------°\n");
 		scanf("%i", &n);
 		system("cls");
@@ -686,8 +686,8 @@ int capturar_tramas(){
 		printf("| 1.- IP.  		                       |\n");
 		printf("| 2.- IP icmp.                         |\n");
 		printf("| 3.- IP igmp.                         |\n");
-		printf("| 4.- IP udp.                         |\n");
-		printf("| 5.- IP tcp.                         |\n");
+		printf("| 4.- IP udp.                          |\n");
+		printf("| 5.- IP tcp.                          |\n");
 		printf("°--------------------------------------°\n");
 		scanf("%i",&opcion1);
 		if(opcion1 == 1){
