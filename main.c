@@ -751,7 +751,6 @@ void packet_handler_icmp(u_char *param, const struct pcap_pkthdr *header, const 
 }
 void packet_handler_igmp(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data){
 	
-	int i=0;
 	ip_header *ih;
 	ih = (ip_header *) (pkt_data + 14); //length of ethernet header
 	unsigned char hlen = ((ih->ver_ihl) & 0x0f) * 4;
@@ -799,9 +798,11 @@ void packet_handler_igmp(u_char *param, const struct pcap_pkthdr *header, const 
 }
 void packet_handler_udp(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data){
 	ip_header *ih;
-	printf("+|                  *UDP*                  |+\n");
-	tcp_header *tcp;
+	ih = (ip_header *) (pkt_data + 14);
 	u_char ihl = ((ih->ver_ihl)&0x0f)*4;
+	tcp_header *tcp;
+	
+	printf("+|                  *UDP*                  |+\n");
 	tcp = (tcp_header *) (pkt_data + 14+(ihl));
 	printf("Source port: %X \n",tcp->sport);
 	printf("Destination port: %X \n",tcp->dport);
@@ -815,8 +816,9 @@ void packet_handler_udp(u_char *param, const struct pcap_pkthdr *header, const u
 }
 void packet_handler_tcp(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data){
 	ip_header *ih;
-	udp_header *udp;
+	ih = (ip_header *) (pkt_data + 14);
 	u_char ihl = ((ih->ver_ihl)&0x0f)*4;
+	udp_header *udp;
 	udp = (udp_header *) (pkt_data + 14+(ihl));
 	printf("+|                  *UDP*                  |+\n");
 	printf("Source port: %X \n",udp->sport);
