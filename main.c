@@ -103,6 +103,7 @@ int main(int argc, char **argv)
 		printf("|  2.- Capturar trama llc.                                           |\n");
 		printf("|  3.- Exportar trama a .pcap                                        |\n");
 		printf("|  4.- Salir.                                                        |\n");
+		printf("|                                Gracias                             |\n");
 		printf("°--------------------------------------------------------------------°\n");
 		scanf("%i", &n);
 		system("cls");
